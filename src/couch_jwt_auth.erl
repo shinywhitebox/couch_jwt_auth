@@ -10,7 +10,7 @@
 -spec decode(Token :: binary(), Config :: list()) -> list().
 decode(Token, Config) ->
   BlacklistStr = couch_util:get_value("blacklist", Config, "[]"),
-  Blacklist = couch_util:parse_terM(BlacklistStr),
+  Blacklist = couch_util:parse_term(BlacklistStr),
   Blacklisted = lists:member(Token, Blacklist),
   if
     Blacklisted -> throw(token_rejected);
