@@ -49,9 +49,9 @@ decode(Token) ->
 % [{"hs_secret","..."},{"roles_claim","roles"},{"username_claim","sub"}]
 -spec decode(Token :: binary(), Config :: list()) -> list().
 decode(Token, Config) ->
-  Blacklist = couch_util:get_value("blacklist", []),
+  BlacklistStr = couch_util:get_value("blacklist", Config, "[]"),
+  % Blacklist = couch_util:parse_term(BlacklistStr),
   Blacklisted = lists:member(Token, Blacklist),
-  io:fwrite(Blacklisted),
   if
     Blacklisted -> throw(token_rejected);
     true ->
