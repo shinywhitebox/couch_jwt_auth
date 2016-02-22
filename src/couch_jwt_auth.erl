@@ -9,7 +9,8 @@
 
 -spec decode(Token :: binary(), Config :: list()) -> list().
 decode(Token, Config) ->
-  Blacklist = couch_util:get_value("blacklist", Config, "[]"),
+  BlacklistStr = couch_util:get_value("blacklist", Config, "[]"),
+  Blacklist = couch_util:parse_terM(BlacklistStr),
   Blacklisted = lists:member(Token, Blacklist),
   if
     Blacklisted -> throw(token_rejected);
@@ -18,7 +19,7 @@ decode(Token, Config) ->
 
 -ifdef(TEST).
 
--define (BlacklistConfig, [{"hs_secret","c2VjcmV0"}, {"blacklist",["blacklisted-token"]}]).
+-define (BlacklistConfig, [{"hs_secret","c2VjcmV0"}, {"blacklist","[\"blacklisted-token\"]"}]).
 
 decode_blacklist_test() ->
   ?assertThrow(token_rejected, decode("blacklisted-token", ?BlacklistConfig)).
