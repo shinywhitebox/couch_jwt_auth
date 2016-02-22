@@ -40,7 +40,6 @@ jwt_authentication_handler(Req) ->
     _ -> Req
   end.
 
-
 %% @doc decode and validate JWT using CouchDB config
 -spec decode(Token :: binary()) -> list().
 decode(Token) ->
@@ -50,12 +49,19 @@ decode(Token) ->
 % [{"hs_secret","..."},{"roles_claim","roles"},{"username_claim","sub"}]
 -spec decode(Token :: binary(), Config :: list()) -> list().
 decode(Token, Config) ->
-  Secret = base64url:decode(couch_util:get_value("hs_secret", Config)),
-  case List = ejwt:decode(list_to_binary(Token), Secret) of
-    error -> throw(signature_not_valid);
-    _ -> validate(lists:map(fun({Key, Value}) ->
-        {?b2l(Key), Value}
-      end, List), posix_time(calendar:universal_time()), Config)
+  Blacklist = couch_util:get_value("blacklist", []),
+  Blacklisted = lists:member(Token, Blacklist),
+  io:fwrite(Blacklisted),
+  if
+    Blacklisted -> throw(token_rejected);
+    true ->
+      Secret = base64url:decode(couch_util:get_value("hs_secret", Config)),
+      case List = ejwt:decode(list_to_binary(Token), Secret) of
+        error -> throw(signature_not_valid);
+        _ -> validate(lists:map(fun({Key, Value}) ->
+            {?b2l(Key), Value}
+          end, List), posix_time(calendar:universal_time()), Config)
+      end
   end.
 
 posix_time({Date,Time}) -> 
@@ -102,8 +108,9 @@ get_userinfo_from_token(User, Config) ->
 % UNIT TESTS
 -ifdef(TEST).
 
--define (EmptyConfig, [{"hs_secret",""}]).
--define (BasicConfig, [{"hs_secret","c2VjcmV0"}]).
+-define (EmptyConfig, [{"hs_secret",""}, {"blacklist",[]}]).
+-define (BasicConfig, [{"hs_secret","c2VjcmV0"}, {"blacklist",[]}]).
+-define (BlacklistConfig, [{"hs_secret","c2VjcmV0"}, {"blacklist",["blacklisted-token"]}]).
 -define (BasicTokenInfo, [{"sub",<<"1234567890">>},{"name",<<"John Doe">>},{"admin",true}]).
 
 decode_malformed_empty_test() ->
@@ -124,6 +131,9 @@ decode_simple_test() ->
 
 decode_unsecured_test() ->
   ?assertError(function_clause, decode("eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.", ?BasicConfig)).
+
+decode_blacklist_test() ->
+  ?assertThrow(token_rejected, decode("blacklisted-token", ?BlacklistConfig)).
 
 validate_simple_test() ->
   TokenInfo = ?BasicTokenInfo,
