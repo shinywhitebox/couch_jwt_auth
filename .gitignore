@@ -1,5 +1,4 @@
-/.eunit/
-/.rebar/erlcinfo
-/deps/
-/ebin/
-/priv/*.so
+.eunit
+.rebar
+deps
+dist

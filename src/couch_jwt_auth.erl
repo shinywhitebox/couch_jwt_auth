@@ -31,6 +31,7 @@ jwt_authentication_handler(Req) ->
   case header_value(Req, "Authorization") of
     "Bearer " ++ Token -> 
       try
+        ensure_safe_token(Token, couch_config:get("jwt_auth_blacklist")),
         token_auth_user(Req, decode(Token))
       catch
         % return generic error message (https://www.owasp.org/index.php/Authentication_Cheat_Sheet#Authentication_Responses)
@@ -40,27 +41,28 @@ jwt_authentication_handler(Req) ->
     _ -> Req
   end.
 
-
 %% @doc decode and validate JWT using CouchDB config
 -spec decode(Token :: binary()) -> list().
 decode(Token) ->
   decode(Token, couch_config:get("jwt_auth")).
 
 % Config is list of key value pairs:
-% [{"hs_secret","..."},{"roles_claim","roles"},{"username_claim","sub"}]
+% [{"secret","..."},{"roles_claim","roles"},{"name_claim","name"}]
 -spec decode(Token :: binary(), Config :: list()) -> list().
 decode(Token, Config) ->
-  Secret = base64url:decode(couch_util:get_value("hs_secret", Config)),
+  Secret = couch_util:get_value("secret", Config),
   case List = ejwt:decode(list_to_binary(Token), Secret) of
     error -> throw(signature_not_valid);
     _ -> validate(lists:map(fun({Key, Value}) ->
         {?b2l(Key), Value}
-      end, List), posix_time(calendar:universal_time()), Config)
+      end, List), erlang:system_time(seconds), Config)
   end.
 
-posix_time({Date,Time}) -> 
-    PosixEpoch = {{1970,1,1},{0,0,0}}, 
-    calendar:datetime_to_gregorian_seconds({Date,Time}) - calendar:datetime_to_gregorian_seconds(PosixEpoch). 
+ensure_safe_token(Token, Config) ->
+  case couch_util:get_value(Token, Config) of
+    undefined -> true;
+    Reason -> throw(Reason)
+  end.
 
 readValidationConfig(Config) -> 
   ClaimsConfig = couch_util:get_value("validated_claims", Config, ""),
@@ -91,20 +93,22 @@ validate(TokenInfo, NowSeconds, Config) ->
   end.
     
 token_auth_user(Req, User) ->
-  {UserName, Roles} = get_userinfo_from_token(User, couch_config:get("jwt_auth")),
-  Req#httpd{user_ctx=#user_ctx{name=UserName, roles=Roles}}.
+  {Name, Roles} = get_userinfo_from_token(User, couch_config:get("jwt_auth")),
+  Req#httpd{user_ctx=#user_ctx{name=Name, roles=Roles}}.
 
 get_userinfo_from_token(User, Config) ->
-  UserName = couch_util:get_value(couch_util:get_value("username_claim", Config, "sub"), User, null),
+  Name = couch_util:get_value(couch_util:get_value("name_claim", Config, "name"), User, null),
   Roles = couch_util:get_value(couch_util:get_value("roles_claim", Config, "roles"), User, []),
-  {UserName, Roles}.
+  {Name, Roles}.
 
 % UNIT TESTS
 -ifdef(TEST).
 
--define (EmptyConfig, [{"hs_secret",""}]).
--define (BasicConfig, [{"hs_secret","c2VjcmV0"}]).
--define (BasicTokenInfo, [{"sub",<<"1234567890">>},{"name",<<"John Doe">>},{"admin",true}]).
+-define (EmptyConfig, [{"secret",""}]).
+-define (BasicConfig, [{"secret","secret"}]).
+-define (BlacklistConfig, [{"token","bad guy 1"}]).
+-define (BasicTokenInfo, [{"name",<<"John Doe">>},{"admin",true}]).
+-define (BasicToken, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UiLCJhZG1pbiI6dHJ1ZX0.OLvs36KmqB9cmsUrMpUutfhV52_iSz4bQMYJjkI_TLQ").
 
 decode_malformed_empty_test() ->
   ?assertError({badmatch,_}, decode("", ?EmptyConfig)).
@@ -116,14 +120,20 @@ decode_malformed_nosignature1_test() ->
   ?assertError({badmatch,_}, decode("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOmZhbHNlfQ", ?BasicConfig)).
 
 decode_malformed_nosignature2_test() ->
-  ?assertThrow(signature_not_valid, decode("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOmZhbHNlfQ.", ?BasicConfig)).
+  ?assertThrow(signature_not_valid, decode("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.", ?BasicConfig)).
 
 decode_simple_test() ->
   TokenInfo = ?BasicTokenInfo,
-  ?assertEqual(TokenInfo, decode("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ", ?BasicConfig)).
+  ?assertEqual(TokenInfo, decode(?BasicToken, ?BasicConfig)).
 
 decode_unsecured_test() ->
-  ?assertError(function_clause, decode("eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWV9.", ?BasicConfig)).
+  ?assertError(function_clause, decode("eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJuYW1lIjoiSm9obiBEb2UiLCJhZG1pbiI6dHJ1ZX0.", ?BasicConfig)).
+
+ensure_safe_token_ok_test() ->
+  ?assertEqual(true, ensure_safe_token("good token", ?BlacklistConfig)).
+
+ensure_safe_token_unsafe_test() ->
+  ?assertThrow("bad guy 1", ensure_safe_token("token", ?BlacklistConfig)).
 
 validate_simple_test() ->
   TokenInfo = ?BasicTokenInfo,
@@ -161,30 +171,24 @@ validate_claims_pass_test() ->
   Config = lists:append([?EmptyConfig, [{"validated_claims", "aud,iss"}, {"validate_claim_aud", "[\"123\"]"},{"validate_claim_iss", "[\"abc\"]"}]]),
   ?assertEqual(TokenInfo, validate(TokenInfo, 1000, Config)).
 
-posix_time1_test() ->
-  ?assertEqual(31536000, posix_time({{1971,1,1}, {0,0,0}})).
-
-posix_time2_test() ->
-  ?assertEqual(31536001, posix_time({{1971,1,1}, {0,0,1}})).
-
 get_userinfo_from_token_default_test() ->
   TokenInfo = ?BasicTokenInfo,
-  {UserName, Roles} = get_userinfo_from_token(TokenInfo, ?EmptyConfig),
+  {Name, Roles} = get_userinfo_from_token(TokenInfo, ?EmptyConfig),
   ?assertEqual([], Roles),
-  ?assertEqual(<<"1234567890">>, UserName).
+  ?assertEqual(<<"John Doe">>, Name).
 
 get_userinfo_from_token_configured_test() ->
   TokenInfo = ?BasicTokenInfo,
-  Config = lists:append([?EmptyConfig, [{"username_claim", "name"}]]),
-  {UserName, Roles} = get_userinfo_from_token(TokenInfo, Config),
+  Config = lists:append([?EmptyConfig, [{"name_claim", "name"}]]),
+  {Name, Roles} = get_userinfo_from_token(TokenInfo, Config),
   ?assertEqual([], Roles),
-  ?assertEqual(<<"John Doe">>, UserName).
+  ?assertEqual(<<"John Doe">>, Name).
 
 % user context is created with null username if username claim is not found from token
 get_userinfo_from_token_name_not_found_test() ->
   TokenInfo = lists:append([?BasicTokenInfo,[{"roles",[<<"123">>]}]]),
-  Config = lists:append([?EmptyConfig, [{"username_claim", "doesntexist"}]]),
-  {UserName, Roles} = get_userinfo_from_token(TokenInfo, Config),
+  Config = lists:append([?EmptyConfig, [{"name_claim", "doesntexist"}]]),
+  {Name, Roles} = get_userinfo_from_token(TokenInfo, Config),
   ?assertEqual([<<"123">>], Roles),
-  ?assertEqual(null, UserName).
+  ?assertEqual(null, Name).
 -endif.
