@@ -1,4 +1,5 @@
-rebar get-deps co eunit
+#rebar get-deps co eunit
+rebar get-deps co
 rm -rf dist
 mkdir -p dist/priv
 mv ebin dist

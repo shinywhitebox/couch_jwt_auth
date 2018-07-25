@@ -24,6 +24,11 @@
 
 -import(couch_httpd, [header_value/2]).
 
+
+%boom(Stuff) ->
+%    couch_log:error("Token reject, ~p, ~p", Stuff),
+%    erlang:iolist_to_binary(io_lib:format("Token reject: ~p, ~p", Stuff)).
+
 %% @doc token authentication handler.
 %
 % This handler allows creation of a userCtx object from a JSON Web Token (JWT).
@@ -31,20 +36,21 @@ jwt_authentication_handler(Req) ->
   case header_value(Req, "Authorization") of
     "Bearer " ++ Token -> 
       try
-        ensure_safe_token(Token, couch_config:get("jwt_auth_blacklist")),
+        ensure_safe_token(Token, config:get("jwt_auth_blacklist")),
         token_auth_user(Req, decode(Token))
       catch
         % return generic error message (https://www.owasp.org/index.php/Authentication_Cheat_Sheet#Authentication_Responses)
-        throw:_ -> throw({unauthorized, <<"Token rejected">>});
-        error:_ -> throw({unauthorized, <<"Token rejected">>})
+        throw:_ -> throw({unauthorized, <<"Token Rejected">>});
+        error:_ -> throw({unauthorized, <<"Token Rejected">>})
       end;
     _ -> Req
   end.
 
+
 %% @doc decode and validate JWT using CouchDB config
 -spec decode(Token :: binary()) -> list().
 decode(Token) ->
-  decode(Token, couch_config:get("jwt_auth")).
+  decode(Token, config:get("jwt_auth")).
 
 % Config is list of key value pairs:
 % [{"secret","..."},{"roles_claim","roles"},{"name_claim","name"}]
@@ -93,7 +99,7 @@ validate(TokenInfo, NowSeconds, Config) ->
   end.
     
 token_auth_user(Req, User) ->
-  {Name, Roles} = get_userinfo_from_token(User, couch_config:get("jwt_auth")),
+  {Name, Roles} = get_userinfo_from_token(User, config:get("jwt_auth")),
   Req#httpd{user_ctx=#user_ctx{name=Name, roles=Roles}}.
 
 get_userinfo_from_token(User, Config) ->
@@ -111,6 +117,7 @@ get_userinfo_from_token(User, Config) ->
 -define (BasicToken, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UiLCJhZG1pbiI6dHJ1ZX0.OLvs36KmqB9cmsUrMpUutfhV52_iSz4bQMYJjkI_TLQ").
 
 decode_malformed_empty_test() ->
+  boom(?BasicTokenInfo),
   ?assertError({badmatch,_}, decode("", ?EmptyConfig)).
 
 decode_malformed_dots_test() ->
