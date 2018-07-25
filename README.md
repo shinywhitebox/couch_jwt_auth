@@ -3,7 +3,7 @@
 I know next to zero erlang. Perhaps all of below is obvious to erlangers.
 
 - Added dependencies on jiffy / jsx
-- Modified the ejwt rebar config to depend on 2.9.0 (not sure how to do this cleanly)
+- JSX pinned to 2.8.0 as that is what ejwt requires
 - export ERL_LIBS=/opt/couchdb/lib/couch-2.1.2-RC8/:/opt/couchdb/lib/couch-2.1.2-RC8/include
     - so that it picks up the couch code when running the tests (and doesn't fail with undefs)
     - so that it picks up the couch includes when compiling
