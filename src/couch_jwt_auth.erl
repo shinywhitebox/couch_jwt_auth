@@ -20,7 +20,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--include_lib("couch/include/couch_db.hrl").
+-include_lib("couch_db.hrl").
 
 -import(couch_httpd, [header_value/2]).
 
