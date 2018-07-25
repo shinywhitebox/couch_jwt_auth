@@ -1,12 +1,25 @@
-# Getting it going on 2.x
+# Getting it going on CouchDB 2.1.2
 
 I know next to zero erlang. Perhaps all of below is obvious to erlangers.
 
-- Added dependencies on jiffy / jsx
-- JSX pinned to 2.8.0 as that is what ejwt requires
+- Requires couchdb be installed, since it'll reference the couch_db.hrl include (and will need couch libs during tests)
+- *sudo apt-get install rebar* (just rebar, not rebar3, despite the warnings that rebar is deprecated)
+- Added dependencies on jiffy / jsx. JSX pinned to 2.8.0 as that is what ejwt requires
 - export ERL_LIBS=/opt/couchdb/lib/couch-2.1.2-RC8/:/opt/couchdb/lib/couch-2.1.2-RC8/include
     - so that it picks up the couch code when running the tests (and doesn't fail with undefs)
     - so that it picks up the couch includes when compiling
+    - ERL_LIBS also affects the BEAM codepaths, so this is how you can tell it where compiled code is.
+
+# Do the ubuntu thing
+    - echo "deb https://apache.bintray.com/couchdb-deb xenial main" | sudo tee -a /etc/apt/sources.list
+    - curl -L https://couchdb.apache.org/repo/bintray-pubkey.asc | sudo apt-key add -
+    - sudo apt-get update
+
+
+# Using Kerl to get erlang 19.3
+    - sudo apt-get install openssl libssl-dev automake autoconf libncurses5-dev
+    - curl -O https://raw.githubusercontent.com/kerl/kerl/master/kerl && chmod +x kerl
+    - ./kerl build 19.3 19.3
 
 # couch_jwt_auth
 
