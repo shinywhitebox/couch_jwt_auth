@@ -20,7 +20,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -define(TRACE(Text), io:format(user, "TRACE ~p:~p ~s~n", [?MODULE, ?LINE, Text])).
 -else.
--define(TRACE(Text), couch_log:error("[jwt auth] ~s~n", [Text])).
+-define(TRACE(Text), couch_log:error("[jwt auth!] ~s~n", [Text])).
 -endif.
 
 -include_lib("couch_db.hrl").
@@ -43,8 +43,8 @@ jwt_authentication_handler(Req) ->
         token_auth_user(Req, decode(Token))
       catch
         % return generic error message (https://www.owasp.org/index.php/Authentication_Cheat_Sheet#Authentication_Responses)
-        throw:_ -> throw({unauthorized, doMessage("Token Rejected[1]")});
-        error:_ -> throw({unauthorized, doMessage("Token Rejected[2]")})
+        throw:_ -> throw({unauthorized, doMessage("Token Rejected [1]")});
+        error:_ -> throw({unauthorized, doMessage("Token Rejected [2]")})
       end;
     _ -> Req
   end.
@@ -56,6 +56,7 @@ erlang_system_time_fallback() ->
 %% @doc decode and validate JWT using CouchDB config
 -spec decode(Token :: binary()) -> list().
 decode(Token) ->
+  doMessage('starting JWT'),
   decode(Token, config:get("jwt_auth")).
 
 % Config is list of key value pairs:
@@ -63,7 +64,7 @@ decode(Token) ->
 -spec decode(Token :: binary(), Config :: list()) -> list().
 decode(Token, Config) ->
   Secret = couch_util:get_value("secret", Config),
-  doMessage("Secret: " ++ Secret),
+%  doMessage("Secret: " ++ Secret),
   case List = ejwt:decode(list_to_binary(Token), Secret) of
     error -> throw(signature_not_valid);
     _ -> validate(lists:map(fun({Key, Value}) ->

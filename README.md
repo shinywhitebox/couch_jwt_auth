@@ -2,41 +2,18 @@
 
 I know next to zero erlang. Perhaps all of below is obvious to erlangers.
 
-# The ... Easier Way
+I chose to create a "as close as possible to what I want to deploy" build environment, by creating a docker container
+based on the couchdb:2.1.2, and then adding devtools to that.  I then mounted this repo inside that container, and did builds that way.
+
+That was easier than configuring up a full VM etc etc etc.
+
+So:
 - Create another docker container from the couchdb 2.1.2, add build tools, built it, then extract the binaries
 - Build a custom docker container using said binaries
 
-# The Hard Way
-- Requires:
-    - couchdb be installed, since it'll reference the couch_db.hrl include (and will need couch libs during tests)
-    - ububtu16.04, because you want openssl1.0.0 not the 1.1 of later distros (erlang 19.3 expects 1.0.0)
-
-- *sudo apt-get install rebar* (just rebar, not rebar3, despite the warnings that rebar is deprecated)
-- export ERL_LIBS=/opt/couchdb/lib/couch-2.1.2-RC8
-    - so that it picks up the couch code when running the tests (and doesn't fail with undefs)
-    - so that it picks up the couch includes when compiling
-    - ERL_LIBS also affects the BEAM codepaths, so this is how you can tell it where compiled code is.
-
-- Install couchdb 2.1.2 (latest at the time of writing)
-    - echo "deb https://apache.bintray.com/couchdb-deb xenial main" | sudo tee -a /etc/apt/sources.list
-    - curl -L https://couchdb.apache.org/repo/bintray-pubkey.asc | sudo apt-key add -
-    - sudo apt-get update
-    - auto apt-get install couchdb
-
-- Get erlang 19.3 (ubuntu 16.04):
-    - wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
-    - sudo dpkg -i erlang-solutions_1.0_all.deb
-    - sudo apt-get update
-    - sudo apt-get install esl-erlang=1:19.3
-    - Check it: "erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().'  -noshell"
-
-Now you should be able to build and run the tests of the auth module.
-    - rebar co (because one test fails, and I dont know how to fix the matcher)
-    - ./install.sh
-    - sudo systemctl restart couchdb
-
 # Things I modified
-    - Added dependencies on jiffy / jsx. JSX pinned to 2.8.0 as that is what ejwt requires.
+    - Modifed to not use erlang:system_time (it doesnt exist on OTP17)
+    - Added dependencies on jsx. JSX pinned to 2.8.0 as that is what ejwt requires.
     - Added script to deploy ebin directly to /opt/couch/lib/couch_jwt_auth (mainly to test the thing)
 
 
