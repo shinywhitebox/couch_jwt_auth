@@ -2,6 +2,11 @@
 
 I know next to zero erlang. Perhaps all of below is obvious to erlangers.
 
+# The ... Easier Way
+- Create another docker container from the couchdb 2.1.2, add build tools, built it, then extract the binaries
+- Build a custom docker container using said binaries
+
+# The Hard Way
 - Requires:
     - couchdb be installed, since it'll reference the couch_db.hrl include (and will need couch libs during tests)
     - ububtu16.04, because you want openssl1.0.0 not the 1.1 of later distros (erlang 19.3 expects 1.0.0)
@@ -17,15 +22,6 @@ I know next to zero erlang. Perhaps all of below is obvious to erlangers.
     - curl -L https://couchdb.apache.org/repo/bintray-pubkey.asc | sudo apt-key add -
     - sudo apt-get update
     - auto apt-get install couchdb
-
-- Get erlang 17.x:
-    - wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
-    - sudo dpkg -i erlang-solutions_1.0_all.deb
-    - sudo apt-get update
-    - sudo apt-get install esl-erlang=1:17.5
-    - Check it: "erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().'  -noshell"
-
-or;
 
 - Get erlang 19.3 (ubuntu 16.04):
     - wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
