@@ -27,8 +27,11 @@
 
 -import(couch_httpd, [header_value/2]).
 
+toText(Thing) ->
+  lists:flatten(io_lib:format("~p", [Thing])).
+
 doMessage(Thing) ->
-  Text = lists:flatten(io_lib:format("~p", [Thing])),
+  Text = toText(Thing),
   ?TRACE(Text),
   erlang:iolist_to_binary(Text).
 
@@ -43,28 +46,59 @@ jwt_authentication_handler(Req) ->
         token_auth_user(Req, decode(Token))
       catch
         % return generic error message (https://www.owasp.org/index.php/Authentication_Cheat_Sheet#Authentication_Responses)
-        throw:Thrown -> throw({unauthorized, doMessage(Thrown)});
+        throw:Thrown -> throw({unauthorized, doMessage(["Token Rejected", Thrown])});
         error:_ -> throw({unauthorized, doMessage("Token Rejected [2]")})
       end;
     _ -> Req
   end.
 
+integer_time_unit(native) -> 1000*1000;
+integer_time_unit(nanosecond) -> 1000*1000*1000;
+integer_time_unit(microsecond) -> 1000*1000;
+integer_time_unit(millisecond) -> 1000;
+integer_time_unit(second) -> 1;
+integer_time_unit(nano_seconds) -> 1000*1000*1000;
+integer_time_unit(micro_seconds) -> 1000*1000;
+integer_time_unit(milli_seconds) -> 1000;
+integer_time_unit(seconds) -> 1;
+integer_time_unit(I) when is_integer(I), I > 0 -> I;
+integer_time_unit(BadRes) -> erlang:error(bad_time_unit, [BadRes]).
+
+os_system_time_fallback() ->
+    {MS, S, US} = os:timestamp(),
+    (MS*1000000+S)*1000000+US.
+
 erlang_system_time_fallback() ->
     {MS, S, US} = erlang:now(),
     (MS*1000000+S)*1000000+US.
 
+convert_time_unit_fallback(Time, FromUnit, ToUnit) ->
+    FU = integer_time_unit(FromUnit),
+    TU = integer_time_unit(ToUnit),
+    case Time < 0 of
+	true -> TU*Time - (FU - 1);
+	false -> TU*Time
+    end div FU.
+
+os_system_time(Unit) ->
+    STime = os_system_time_fallback(),
+    try
+        convert_time_unit_fallback(STime, native, Unit)
+    catch
+        error:bad_time_unit -> erlang:error(badarg, [Unit])
+    end.
+
 %% @doc decode and validate JWT using CouchDB config
 -spec decode(Token :: binary()) -> list().
 decode(Token) ->
-  doMessage('starting JWT'),
   decode(Token, config:get("jwt_auth")).
 
 % Config is list of key value pairs:
 % [{"secret","..."},{"roles_claim","roles"},{"name_claim","name"}]
 -spec decode(Token :: binary(), Config :: list()) -> list().
 decode(Token, Config) ->
+  doMessage(["starting JWT at time", os_system_time(seconds)]),
   Secret = couch_util:get_value("secret", Config),
-%  doMessage("Secret: " ++ Secret),
   case List = ejwt:decode(list_to_binary(Token), Secret) of
     error -> throw(signature_not_valid);
     _ -> validate(lists:map(fun({Key, Value}) ->
