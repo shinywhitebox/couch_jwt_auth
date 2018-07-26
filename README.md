@@ -21,6 +21,7 @@ That was easier than configuring up a full VM etc etc etc.
     - I include a custom .ini file in my container build, that has everything I need changed for my project (e.g: all chttpd settings, etc).  I added my [jwt_auth] config to this. So for me, I build and deploy one custom couchdb container and I'm done.
 
 # Things I modified
+
     - Modified to not use erlang:system_time (it doesn't exist on OTP17, which debian jessie uses). Instead I used some of http://erlang.org/doc/apps/erts/time_compat.erl.
     - Added dependencies on jsx, pinned to 2.8.0 as that is what ejwt requires.
     - Added script to deploy ebin directly to /opt/couch/lib/couch_jwt_auth (mainly to test the thing when I *was* using a VM)
