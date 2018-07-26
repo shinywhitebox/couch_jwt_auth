@@ -18,7 +18,16 @@ I know next to zero erlang. Perhaps all of below is obvious to erlangers.
     - sudo apt-get update
     - auto apt-get install couchdb
 
-- Get erlang 19.3:
+- Get erlang 17.x:
+    - wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
+    - sudo dpkg -i erlang-solutions_1.0_all.deb
+    - sudo apt-get update
+    - sudo apt-get install esl-erlang=1:17.5
+    - Check it: "erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().'  -noshell"
+
+or;
+
+- Get erlang 19.3 (ubuntu 16.04):
     - wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb
     - sudo dpkg -i erlang-solutions_1.0_all.deb
     - sudo apt-get update
