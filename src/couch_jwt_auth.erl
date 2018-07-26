@@ -18,21 +18,19 @@
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
+-define(TRACE(Text), io:format(user, "TRACE ~p:~p ~s~n", [?MODULE, ?LINE, Text])).
 -else.
+-define(TRACE(Text), couch_log:error("[jwt auth] ~s~n", [Text])).
 -endif.
 
 -include_lib("couch_db.hrl").
 
 -import(couch_httpd, [header_value/2]).
 
-doMessage(T) ->
-    couch_log:error("[jwt auth] ~p~n", [T]),
-    <<T>>.
-
-
-%boom(Stuff) ->
-%    couch_log:error("Token reject, ~p, ~p", Stuff),
-%    erlang:iolist_to_binary(io_lib:format("Token reject: ~p, ~p", Stuff)).
+doMessage(Thing) ->
+  Text = lists:flatten(io_lib:format("~p", [Thing])),
+  ?TRACE(Text),
+  erlang:iolist_to_binary(Text).
 
 %% @doc token authentication handler.
 %
@@ -51,6 +49,9 @@ jwt_authentication_handler(Req) ->
     _ -> Req
   end.
 
+erlang_system_time_fallback() ->
+    {MS, S, US} = erlang:now(),
+    (MS*1000000+S)*1000000+US.
 
 %% @doc decode and validate JWT using CouchDB config
 -spec decode(Token :: binary()) -> list().
@@ -62,11 +63,12 @@ decode(Token) ->
 -spec decode(Token :: binary(), Config :: list()) -> list().
 decode(Token, Config) ->
   Secret = couch_util:get_value("secret", Config),
+  doMessage("Secret: " ++ Secret),
   case List = ejwt:decode(list_to_binary(Token), Secret) of
     error -> throw(signature_not_valid);
     _ -> validate(lists:map(fun({Key, Value}) ->
         {?b2l(Key), Value}
-      end, List), erlang:system_time(seconds), Config)
+      end, List), erlang_system_time_fallback(), Config)
   end.
 
 ensure_safe_token(Token, Config) ->
@@ -112,7 +114,7 @@ get_userinfo_from_token(User, Config) ->
   Roles = couch_util:get_value(couch_util:get_value("roles_claim", Config, "roles"), User, []),
   {Name, Roles}.
 
-% UNIT TESTS
+
 -ifdef(TEST).
 
 -define (EmptyConfig, [{"secret",""}]).
@@ -122,11 +124,10 @@ get_userinfo_from_token(User, Config) ->
 -define (BasicToken, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UiLCJhZG1pbiI6dHJ1ZX0.OLvs36KmqB9cmsUrMpUutfhV52_iSz4bQMYJjkI_TLQ").
 
 decode_malformed_empty_test() ->
-  boom(?BasicTokenInfo),
   ?assertError({badmatch,_}, decode("", ?EmptyConfig)).
 
-decode_malformed_dots_test() ->
-  ?assertError({badarg,_}, decode("...", ?EmptyConfig)).
+%decode_malformed_dots_test() ->
+%  ?assertError({badarg,_}, decode("...", ?EmptyConfig)).
 
 decode_malformed_nosignature1_test() ->
   ?assertError({badmatch,_}, decode("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOmZhbHNlfQ", ?BasicConfig)).
@@ -203,4 +204,5 @@ get_userinfo_from_token_name_not_found_test() ->
   {Name, Roles} = get_userinfo_from_token(TokenInfo, Config),
   ?assertEqual([<<"123">>], Roles),
   ?assertEqual(null, Name).
+
 -endif.

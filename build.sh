@@ -1,5 +1,5 @@
-#rebar get-deps co eunit
-rebar get-deps co
+rebar get-deps co eu
+#rebar get-deps co
 rm -rf dist
 mkdir -p dist/priv
 mv ebin dist
