@@ -18,11 +18,16 @@
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
+-else.
 -endif.
 
 -include_lib("couch_db.hrl").
 
 -import(couch_httpd, [header_value/2]).
+
+doMessage(T) ->
+    couch_log:error("[jwt auth] ~p~n", [T]),
+    <<T>>.
 
 
 %boom(Stuff) ->
@@ -36,12 +41,12 @@ jwt_authentication_handler(Req) ->
   case header_value(Req, "Authorization") of
     "Bearer " ++ Token -> 
       try
-        ensure_safe_token(Token, config:get("jwt_auth_blacklist")),
+        ensure_safe_token(Token, couch_config:get("jwt_auth_blacklist")),
         token_auth_user(Req, decode(Token))
       catch
         % return generic error message (https://www.owasp.org/index.php/Authentication_Cheat_Sheet#Authentication_Responses)
-        throw:_ -> throw({unauthorized, <<"Token Rejected">>});
-        error:_ -> throw({unauthorized, <<"Token Rejected">>})
+        throw:_ -> throw({unauthorized, doMessage("Token Rejected[1]")});
+        error:_ -> throw({unauthorized, doMessage("Token Rejected[2]")})
       end;
     _ -> Req
   end.
@@ -50,7 +55,7 @@ jwt_authentication_handler(Req) ->
 %% @doc decode and validate JWT using CouchDB config
 -spec decode(Token :: binary()) -> list().
 decode(Token) ->
-  decode(Token, config:get("jwt_auth")).
+  decode(Token, couch_config:get("jwt_auth")).
 
 % Config is list of key value pairs:
 % [{"secret","..."},{"roles_claim","roles"},{"name_claim","name"}]
@@ -99,7 +104,7 @@ validate(TokenInfo, NowSeconds, Config) ->
   end.
     
 token_auth_user(Req, User) ->
-  {Name, Roles} = get_userinfo_from_token(User, config:get("jwt_auth")),
+  {Name, Roles} = get_userinfo_from_token(User, couch_config:get("jwt_auth")),
   Req#httpd{user_ctx=#user_ctx{name=Name, roles=Roles}}.
 
 get_userinfo_from_token(User, Config) ->
