@@ -14,8 +14,8 @@ That was easier than configuring up a full VM etc etc etc.
     - echo >>/etc/apt/sources.list deb http://ftp.debian.org/debian jessie-backports main
     - apt-get update
     - apt-get -t jessie-backports install rebar
-- Checkout this repo, build it (./build.sh), then extract the binaries (./install.sh)
-- Check in the binaries. Yep. I could do scp/etc, but for this I just checked them in.
+- Checkout this repo, build it (./build.sh), then move the binaries to the builds folder of the repo (./install.sh)
+- *Check in the binaries*. Yep. I could do scp/etc, but for this I just checked them in.
 - I then build a custom couchdb container and place those binaries in /opt/couchdb/lib/couch_jwt_auth.
     - Because they are in the same folder as the existing libraries, I don't need to touch the ERL_LIBS path
     - I include a custom .ini file in my container build, that has everything I need changed for my project (e.g: all chttpd settings, etc).  I added my [jwt_auth] config to this. So for me, I build and deploy one custom couchdb container and I'm done.
