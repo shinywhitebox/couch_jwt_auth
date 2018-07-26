@@ -68,10 +68,6 @@ os_system_time_fallback() ->
     {MS, S, US} = os:timestamp(),
     (MS*1000000+S)*1000000+US.
 
-erlang_system_time_fallback() ->
-    {MS, S, US} = erlang:now(),
-    (MS*1000000+S)*1000000+US.
-
 convert_time_unit_fallback(Time, FromUnit, ToUnit) ->
     FU = integer_time_unit(FromUnit),
     TU = integer_time_unit(ToUnit),
@@ -103,7 +99,7 @@ decode(Token, Config) ->
     error -> throw(signature_not_valid);
     _ -> validate(lists:map(fun({Key, Value}) ->
         {?b2l(Key), Value}
-      end, List), erlang_system_time_fallback(), Config)
+      end, List), os_system_time(seconds), Config)
   end.
 
 ensure_safe_token(Token, Config) ->
