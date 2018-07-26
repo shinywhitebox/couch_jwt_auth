@@ -2,20 +2,33 @@
 
 I know next to zero erlang. Perhaps all of below is obvious to erlangers.
 
-I chose to create a "as close as possible to what I want to deploy" build environment, by creating a docker container
-based on the couchdb:2.1.2, and then adding devtools to that.  I then mounted this repo inside that container, and did builds that way.
+I chose to create a "as close as possible to what I will deploy" build environment, by creating a docker container
+based on couchdb:2.1.2, and then adding devtools to that.  I then mounted this repo inside that container, and did builds that way.
 
 That was easier than configuring up a full VM etc etc etc.
 
-So:
-- Create another docker container from the couchdb 2.1.2, add build tools, built it, then extract the binaries
-- Build a custom docker container using said binaries
+# How I build -> docker
+- Create a docker image from the couchdb 2.1.2, add build tools (see buildDockerBuildEnvironment).
+- Fire up container from said image
+- Upgrade rebar, because the tests won't run otherwise. Beats me why.
+    - echo >>/etc/apt/sources.list deb http://ftp.debian.org/debian jessie-backports main
+    - apt-get update
+    - apt-get -t jessie-backports install rebar
+- Checkout this repo, build it (./build.sh), then extract the binaries (./install.sh)
+- Check in the binaries. Yep. I could do scp/etc, but for this I just checked them in.
+- I then build a custom couchdb container and place those binaries in /opt/couchdb/lib/couch_jwt_auth.
+    - Because they are in the same folder as the existing libraries, I don't need to touch the ERL_LIBS path
+    - I include a custom .ini file in my container build, that has everything I need changed for my project (e.g: all chttpd settings, etc).  I added my [jwt_auth] config to this. So for me, I build and deploy one custom couchdb container and I'm done.
 
 # Things I modified
-    - Modifed to not use erlang:system_time (it doesnt exist on OTP17)
-    - Added dependencies on jsx. JSX pinned to 2.8.0 as that is what ejwt requires.
-    - Added script to deploy ebin directly to /opt/couch/lib/couch_jwt_auth (mainly to test the thing)
+    - Modified to not use erlang:system_time (it doesn't exist on OTP17, which debian jessie uses). Instead I used some of http://erlang.org/doc/apps/erts/time_compat.erl.
+    - Added dependencies on jsx, pinned to 2.8.0 as that is what ejwt requires.
+    - Added script to deploy ebin directly to /opt/couch/lib/couch_jwt_auth (mainly to test the thing when I *was* using a VM)
+    - Commented out the 'decode_malformed_dots_test' test because I don't know how to get it to match properly.
 
+Original README follows from here
+
+---
 
 # couch_jwt_auth
 
