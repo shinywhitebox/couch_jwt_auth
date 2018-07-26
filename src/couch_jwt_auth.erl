@@ -43,7 +43,7 @@ jwt_authentication_handler(Req) ->
         token_auth_user(Req, decode(Token))
       catch
         % return generic error message (https://www.owasp.org/index.php/Authentication_Cheat_Sheet#Authentication_Responses)
-        throw:_ -> throw({unauthorized, doMessage("Token Rejected [1]")});
+        throw:Thrown -> throw({unauthorized, doMessage(Thrown)});
         error:_ -> throw({unauthorized, doMessage("Token Rejected [2]")})
       end;
     _ -> Req
